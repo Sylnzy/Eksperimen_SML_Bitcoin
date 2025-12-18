@@ -36,7 +36,7 @@ jobs:
 
       - name: Run preprocessing automation
         run: |
-          python automate_preprocessing.py
+          python preprocessing/automate_Sylnzy.py
 
       - name: Upload preprocessing results
         uses: actions/upload-artifact@v3

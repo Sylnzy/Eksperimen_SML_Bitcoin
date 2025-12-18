@@ -67,3 +67,7 @@ models/
 tmp/
 temp/
 *.tmp
+
+# Submission Instructions (private)
+intruksi/
+instruksi/
