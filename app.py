@@ -15,7 +15,13 @@ from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
 
+# Import metrics
+from metrics import setup_metrics_app, track_prediction, track_request, measure_latency
+
 app = Flask(__name__)
+
+# Setup Prometheus metrics
+setup_metrics_app(app)
 
 # Load model and scaler
 MODEL_PATH = 'models/btc_model_tuned.pkl'
@@ -81,6 +87,7 @@ def get_latest_btc_data():
 @app.route('/')
 def home():
     """API home endpoint"""
+    track_request('GET', '/', '200')
     return jsonify({
         'service': 'Bitcoin Price Prediction API',
         'version': '1.0',
@@ -97,6 +104,7 @@ def home():
 @app.route('/health')
 def health():
     """Health check endpoint"""
+    track_request('GET', '/health', '200')
     return jsonify({
         'status': 'healthy',
         'model_loaded': model is not None,
@@ -105,6 +113,7 @@ def health():
 
 
 @app.route('/predict', methods=['POST'])
+@measure_latency
 def predict():
     """
     Predict Bitcoin price direction
@@ -123,6 +132,7 @@ def predict():
     }
     """
     if model is None or scaler is None:
+        track_request('POST', '/predict', '500')
         return jsonify({'error': 'Model not loaded'}), 500
     
     try:
@@ -149,9 +159,14 @@ def predict():
         # Get confidence
         confidence = float(prediction_proba[int(prediction)])
         
+        # Track metrics
+        prediction_type = 'NAIK' if prediction == 1 else 'TURUN'
+        track_prediction(prediction_type, confidence, float(current_price))
+        track_request('POST', '/predict', '200')
+        
         # Format response
         result = {
-            'prediction': 'NAIK' if prediction == 1 else 'TURUN',
+            'prediction': prediction_type,
             'prediction_code': int(prediction),
             'confidence': round(confidence * 100, 2),
             'current_price': float(current_price),
@@ -168,6 +183,7 @@ def predict():
         return jsonify(result)
         
     except Exception as e:
+        track_request('POST', '/predict', '500')
         return jsonify({'error': str(e)}), 500
 
 
