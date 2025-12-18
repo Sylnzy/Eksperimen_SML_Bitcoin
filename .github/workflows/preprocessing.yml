@@ -1,0 +1,61 @@
+name: Bitcoin Data Preprocessing Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Manual trigger
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight UTC
+
+jobs:
+  preprocess-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run preprocessing automation
+      run: |
+        python automate_preprocessing.py
+        
+    - name: Upload preprocessing results
+      uses: actions/upload-artifact@v3
+      with:
+        name: preprocessed-data
+        path: |
+          btc_raw.csv
+          btc_preprocessing.csv
+        retention-days: 30
+        
+    - name: Commit updated data (if changes)
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add btc_raw.csv btc_preprocessing.csv
+        git diff --staged --quiet || git commit -m "Auto-update: Bitcoin data preprocessing [$(date +'%Y-%m-%d')]"
+        
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: main
